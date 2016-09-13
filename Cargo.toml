@@ -1,0 +1,10 @@
+[package]
+authors = ["Jacob Helwig <jacob@technosorcery.net>", "Jimmy Cuadra <jimmy@jimmycuadra.com>"]
+description = "Utility for deleting old images in Amazon EC2 Container Registry."
+homepage = "https://github.com/InQuicker/ecr-cleaner"
+keywords = ["aws", "cloud", "ecr"]
+license = "MIT"
+name = "ecr-cleaner"
+readme = "README.md"
+repository = "https://github.com/InQuicker/ecr-cleaner"
+version = "0.1.0"
