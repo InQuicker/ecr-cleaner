@@ -8,3 +8,15 @@ name = "ecr-cleaner"
 readme = "README.md"
 repository = "https://github.com/InQuicker/ecr-cleaner"
 version = "0.1.0"
+
+[dependencies]
+hyper = "*"
+env_logger = "0.3.5"
+log = "*"
+rusoto_core = "0.25"
+rusoto_ecr = "0.25"
+
+[dependencies.clap]
+git = "https://github.com/kbknapp/clap-rs/"
+# version = "~2.19.0"
+features = ["wrap_help"]
