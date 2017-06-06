@@ -7,6 +7,7 @@ extern crate rusoto_ecr;
 extern crate env_logger;
 
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::error::Error;
 use std::str::FromStr;
 
@@ -15,7 +16,7 @@ use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use hyper::client::Client;
 
 use rusoto_core::{ChainProvider, ProfileProvider, Region};
-use rusoto_ecr::{DescribeRepositoriesRequest, Ecr, EcrClient, ImageIdentifierList, ListImagesRequest, RepositoryList};
+use rusoto_ecr::{DescribeRepositoriesRequest, Ecr, EcrClient, ImageDetailList, DescribeImagesRequest, RepositoryList};
 use rusoto_core::default_tls_client;
 
 fn build_cli() -> App<'static, 'static> {
@@ -134,7 +135,66 @@ fn get_repository_list(ecr_client: EcrClient<ChainProvider, Client>, request: De
 }
 
 fn list_repository_images(ecr_client: EcrClient<ChainProvider, Client>, repo_name: String) {
+    let mut describe_images_request = DescribeImagesRequest::default();
+    describe_images_request.repository_name = repo_name;
+    if let Some(mut images) = get_repository_image_list(ecr_client, describe_images_request) {
+        println!("Digest\t\tPushed At\t\tSize");
+        images.sort_by(|a, b| {
+            let a_pushed = match a.image_pushed_at {
+                Some(pushed) => pushed,
+                None => 0f64,
+            };
+            let b_pushed = match b.image_pushed_at {
+                Some(pushed) => pushed,
+                None => 0f64,
+            };
+
+            match a_pushed.partial_cmp(&b_pushed) {
+                Some(order) => order.reverse(),
+                None => Ordering::Equal,
+            }
+        });
+
+        for image in images.iter() {
+            debug!("Image: {:?}", image);
+            let image_digest = match image.image_digest.borrow() {
+                &Some(ref n) => n.clone(),
+                &None => "n/a".to_string(),
+            };
+            println!("{}\t\t{:?}\t{:?}", image_digest, image.image_pushed_at.unwrap(), image.image_size_in_bytes.unwrap());
+        }
+    }
 }
 
-// fn get_repository_image_list(ecr_client: EcrClient<ChainProvider, Client>, request: ListImagesRequest) -> Option<ImageIdentifierList> {
-// }
+fn get_repository_image_list(ecr_client: EcrClient<ChainProvider, Client>, request: DescribeImagesRequest) -> Option<ImageDetailList> {
+    match ecr_client.describe_images(&request) {
+        Ok(response) => {
+            debug!("Got a response!");
+            debug!("Response {:?}", response);
+            let mut images = match response.image_details {
+                Some(imgs) => imgs,
+                None => return None,
+            };
+
+            if let Some(next_token) = response.next_token {
+                let new_request = DescribeImagesRequest {
+                    filter: request.filter,
+                    image_ids: request.image_ids,
+                    next_token: Some(next_token),
+                    max_results: request.max_results,
+                    registry_id: request.registry_id,
+                    repository_name: request.repository_name
+                };
+                if let Some(mut more_images) = get_repository_image_list(ecr_client, new_request) {
+                    images.append(&mut more_images);
+                }
+            }
+
+            return Some(images);
+        },
+        Err(e) => {
+            println!("Could not list images: {}", e.description());
+            None
+        }
+    }
+}
