@@ -23,9 +23,11 @@ use rusoto_ecr::EcrClient;
 
 use ecr::{list_repositories, list_repository_images};
 use error::Error;
+use fmt::{display_images, display_repositories};
 
 mod ecr;
 mod error;
+mod fmt;
 
 fn build_cli() -> App<'static, 'static> {
     app_from_crate!(", ")
@@ -117,11 +119,7 @@ fn real_main() -> Result<(), Error> {
     let ecr_client = EcrClient::new(default_tls_client()?, chain_provider, region);
 
     match matches.subcommand() {
-        ("list", Some(sub_matches)) => {
-            list_subcommand(sub_matches, ecr_client);
-
-            Ok(())
-        }
+        ("list", Some(sub_matches)) => list_subcommand(sub_matches, ecr_client),
         ("clean", Some(sub_matches)) => {
             clean_subcommand(sub_matches, ecr_client)?;
 
@@ -168,15 +166,22 @@ where
     Ok(())
 }
 
-fn list_subcommand<P, D>(arg_matches: &ArgMatches, ecr_client: EcrClient<P, D>)
+fn list_subcommand<P, D>(arg_matches: &ArgMatches, ecr_client: EcrClient<P, D>) -> Result<(), Error>
 where
     P: ProvideAwsCredentials,
     D: DispatchSignedRequest,
 {
     if let Some(repo_name) = arg_matches.value_of("repository") {
-        println!("Listing images in {}:", repo_name);
-        list_repository_images(ecr_client, repo_name.to_string());
+        let images = list_repository_images(ecr_client, repo_name.to_string())?;
+
+        display_images(images);
+
+        Ok(())
     } else {
-        list_repositories(ecr_client);
+        let repositories = list_repositories(ecr_client)?;
+
+        display_repositories(repositories);
+
+        Ok(())
     }
 }
