@@ -46,7 +46,7 @@ where
             return Some(images);
         }
         Err(e) => {
-            println!("Could not list images: {}", e.description());
+            error!("Could not list images: {}", e.description());
             None
         }
     }
@@ -84,7 +84,7 @@ where
             return Some(repositories);
         }
         Err(e) => {
-            println!("Could not list repositories: {}", e.description());
+            error!("Could not list repositories: {}", e.description());
             None
         }
     }
