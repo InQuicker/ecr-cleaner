@@ -1,19 +1,7 @@
-use std::cmp::Ordering;
-
 use rusoto_ecr::{ImageDetailList, RepositoryList};
 
-pub fn display_images(mut images: ImageDetailList) {
+pub fn display_images(images: ImageDetailList) {
     println!("Digest\t\tPushed At\t\tSize");
-
-    images.sort_by(|a, b| {
-        let a_pushed = a.image_pushed_at.unwrap_or(0f64);
-        let b_pushed = b.image_pushed_at.unwrap_or(0f64);
-
-        match a_pushed.partial_cmp(&b_pushed) {
-            Some(order) => order.reverse(),
-            None => Ordering::Equal,
-        }
-    });
 
     for image in images.iter() {
         debug!("Image: {:?}", image);
@@ -30,19 +18,8 @@ pub fn display_images(mut images: ImageDetailList) {
     }
 }
 
-pub fn display_repositories(mut repositories: RepositoryList) {
+pub fn display_repositories(repositories: RepositoryList) {
     println!("Repository Name\t\tURI");
-    repositories.sort_by(|a, b| {
-        let a_name = match a.repository_name {
-            Some(ref n) => n.clone(),
-            None => "n/a".to_string(),
-        };
-        let b_name = match b.repository_name {
-            Some(ref n) => n.clone(),
-            None => "n/a".to_string(),
-        };
-        a_name.cmp(&b_name)
-    });
 
     for repository in repositories.iter() {
         debug!("Repository: {:?}", repository);

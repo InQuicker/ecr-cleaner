@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::error::Error as StdError;
 
 use rusoto_core::{DispatchSignedRequest, ProvideAwsCredentials};
@@ -91,7 +92,11 @@ where
     P: ProvideAwsCredentials,
     D: DispatchSignedRequest,
 {
-    get_repository_list(ecr_client, DescribeRepositoriesRequest::default())
+    let mut repositories = get_repository_list(ecr_client, DescribeRepositoriesRequest::default())?;
+
+    repositories.sort_by(|a, b| a.repository_name.cmp(&b.repository_name) );
+
+    Ok(repositories)
 }
 
 
@@ -107,5 +112,11 @@ where
 
     describe_images_request.repository_name = repo_name;
 
-    get_repository_image_list(ecr_client, describe_images_request)
+    let mut images = get_repository_image_list(ecr_client, describe_images_request)?;
+
+    images.sort_by(|a, b| {
+        a.image_pushed_at.partial_cmp(&b.image_pushed_at).unwrap_or(Ordering::Equal)
+    });
+
+    Ok(images)
 }

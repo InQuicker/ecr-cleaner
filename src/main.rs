@@ -156,12 +156,16 @@ where
         .value_of("repository")
         .expect("accessing `repository`");
 
-    info!(
-        "count: {}, threshold: {}, repository: {}",
-        count,
-        threshold,
-        repository
-    );
+    let images = list_repository_images(ecr_client, repository.to_owned())?;
+
+    if images.len() >= threshold as usize {
+        println!(
+            "Repository {} met threshold of {} images. Deleting the oldest {}",
+            repository,
+            threshold,
+            count
+        );
+    }
 
     Ok(())
 }
