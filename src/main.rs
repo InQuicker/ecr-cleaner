@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
 extern crate rusoto_core;
 extern crate rusoto_ecr;
 
@@ -89,21 +86,17 @@ fn build_cli() -> App<'static, 'static> {
 
 fn main() {
     if let Err(error) = real_main() {
-        error!("{}", error);
+        println!("{}", error);
         exit(1);
     }
 }
 
 fn real_main() -> Result<(), Error> {
-    env_logger::init()?;
-
     let matches = build_cli().get_matches();
 
     let mut profile_provider = ProfileProvider::new()?;
 
     if let Some(p) = matches.value_of("profile") {
-        debug!("Setting AWS credentials profile to: {}", p);
-
         profile_provider.set_profile(p);
     }
 
@@ -113,8 +106,6 @@ fn real_main() -> Result<(), Error> {
         .value_of("region")
         .expect("extracting value of `region`")
         .parse()?;
-
-    debug!("Running with region: {}", region);
 
     let ecr_client = EcrClient::new(default_tls_client()?, chain_provider, region);
 

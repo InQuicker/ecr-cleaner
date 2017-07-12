@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::num::ParseIntError;
 
-use log::SetLoggerError;
 use rusoto_core::{CredentialsError, ParseRegionError, TlsError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,5 +25,4 @@ macro_rules! impl_from_error {
 impl_from_error!(CredentialsError);
 impl_from_error!(ParseIntError);
 impl_from_error!(ParseRegionError);
-impl_from_error!(SetLoggerError);
 impl_from_error!(TlsError);

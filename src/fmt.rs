@@ -4,7 +4,6 @@ pub fn display_images(images: ImageDetailList) {
     println!("Digest\t\tPushed At\t\tSize");
 
     for image in images.iter() {
-        debug!("Image: {:?}", image);
         let image_digest = match image.image_digest {
             Some(ref n) => n.clone(),
             None => "n/a".to_string(),
@@ -22,7 +21,6 @@ pub fn display_repositories(repositories: RepositoryList) {
     println!("Repository Name\t\tURI");
 
     for repository in repositories.iter() {
-        debug!("Repository: {:?}", repository);
         let repository_name = match repository.repository_name {
             Some(ref n) => n.clone(),
             None => "n/a".to_string(),
