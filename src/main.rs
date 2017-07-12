@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate clap;
 extern crate env_logger;
-extern crate hyper;
 #[macro_use]
 extern crate log;
 extern crate rusoto_core;
@@ -9,14 +8,19 @@ extern crate rusoto_ecr;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::error::Error;
+use std::error::Error as StdError;
+use std::process::exit;
 use std::str::FromStr;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-
-use hyper::client::Client;
-
-use rusoto_core::{ChainProvider, ProfileProvider, Region, default_tls_client};
+use rusoto_core::{
+    ChainProvider,
+    DispatchSignedRequest,
+    ProfileProvider,
+    ProvideAwsCredentials,
+    Region,
+    default_tls_client,
+};
 use rusoto_ecr::{
     DescribeImagesRequest,
     DescribeRepositoriesRequest,
@@ -25,6 +29,10 @@ use rusoto_ecr::{
     ImageDetailList,
     RepositoryList,
 };
+
+use error::Error;
+
+mod error;
 
 fn build_cli() -> App<'static, 'static> {
     app_from_crate!(", ")
@@ -53,24 +61,41 @@ fn build_cli() -> App<'static, 'static> {
 }
 
 fn main() {
-    env_logger::init().expect("initializing global logger");
+    if let Err(error) = real_main() {
+        error!("{}", error);
+        exit(1);
+    }
+}
+
+fn real_main() -> Result<(), Error> {
+    env_logger::init()?;
 
     let matches = build_cli().get_matches();
 
-    let mut profile_provider = ProfileProvider::new().unwrap();
+    let mut profile_provider = ProfileProvider::new()?;
+
     if let Some(p) = matches.value_of("profile") {
-        println!("Setting AWS credentials profile to: {}", p);
+        debug!("Setting AWS credentials profile to: {}", p);
+
         profile_provider.set_profile(p);
     }
+
     let chain_provider = ChainProvider::with_profile_provider(profile_provider);
 
-    let region = Region::from_str(matches.value_of("region").unwrap()).unwrap();
-    info!("Running with region: {}", region);
+    let region = matches
+        .value_of("region")
+        .expect("extracting value of `region`")
+        .parse()?;
 
-    let ecr_client = EcrClient::new(default_tls_client().unwrap(), chain_provider, region);
+    debug!("Running with region: {}", region);
+
+    let ecr_client = EcrClient::new(default_tls_client()?, chain_provider, region);
+
     match matches.subcommand() {
         ("list", Some(sub_m)) => {
             list_subcommand(sub_m, ecr_client);
+
+            Ok(())
         }
         _ => unreachable!(),
     }
@@ -83,7 +108,11 @@ fn validate_region(region: String) -> Result<(), String> {
     }
 }
 
-fn list_subcommand(arg_matches: &ArgMatches, ecr_client: EcrClient<ChainProvider, Client>) {
+fn list_subcommand<P, D>(arg_matches: &ArgMatches, ecr_client: EcrClient<P, D>)
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     if let Some(repo_name) = arg_matches.value_of("repository") {
         println!("Listing images in {}:", repo_name);
         list_repository_images(ecr_client, repo_name.to_string());
@@ -92,7 +121,11 @@ fn list_subcommand(arg_matches: &ArgMatches, ecr_client: EcrClient<ChainProvider
     }
 }
 
-fn list_repositories(ecr_client: EcrClient<ChainProvider, Client>) {
+fn list_repositories<P, D>(ecr_client: EcrClient<P, D>)
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     if let Some(mut repositories) =
         get_repository_list(ecr_client, DescribeRepositoriesRequest::default())
     {
@@ -124,10 +157,14 @@ fn list_repositories(ecr_client: EcrClient<ChainProvider, Client>) {
     }
 }
 
-fn get_repository_list(
-    ecr_client: EcrClient<ChainProvider, Client>,
+fn get_repository_list<P, D>(
+    ecr_client: EcrClient<P, D>,
     request: DescribeRepositoriesRequest,
-) -> Option<RepositoryList> {
+) -> Option<RepositoryList>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     match ecr_client.describe_repositories(&request) {
         Ok(response) => {
             debug!("Got a response!");
@@ -158,7 +195,11 @@ fn get_repository_list(
     }
 }
 
-fn list_repository_images(ecr_client: EcrClient<ChainProvider, Client>, repo_name: String) {
+fn list_repository_images<P, D>(ecr_client: EcrClient<P, D>, repo_name: String)
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     let mut describe_images_request = DescribeImagesRequest::default();
     describe_images_request.repository_name = repo_name;
     if let Some(mut images) = get_repository_image_list(ecr_client, describe_images_request) {
@@ -195,10 +236,14 @@ fn list_repository_images(ecr_client: EcrClient<ChainProvider, Client>, repo_nam
     }
 }
 
-fn get_repository_image_list(
-    ecr_client: EcrClient<ChainProvider, Client>,
+fn get_repository_image_list<P, D>(
+    ecr_client: EcrClient<P, D>,
     request: DescribeImagesRequest,
-) -> Option<ImageDetailList> {
+) -> Option<ImageDetailList>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     match ecr_client.describe_images(&request) {
         Ok(response) => {
             debug!("Got a response!");
