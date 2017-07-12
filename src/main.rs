@@ -1,10 +1,11 @@
 #[macro_use]
 extern crate clap;
+extern crate env_logger;
 extern crate hyper;
+#[macro_use]
+extern crate log;
 extern crate rusoto_core;
 extern crate rusoto_ecr;
-#[macro_use] extern crate log;
-extern crate env_logger;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -15,33 +16,44 @@ use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 
 use hyper::client::Client;
 
-use rusoto_core::{ChainProvider, ProfileProvider, Region};
-use rusoto_ecr::{DescribeRepositoriesRequest, Ecr, EcrClient, ImageDetailList, DescribeImagesRequest, RepositoryList};
-use rusoto_core::default_tls_client;
+use rusoto_core::{ChainProvider, ProfileProvider, Region, default_tls_client};
+use rusoto_ecr::{
+    DescribeImagesRequest,
+    DescribeRepositoriesRequest,
+    Ecr,
+    EcrClient,
+    ImageDetailList,
+    RepositoryList,
+};
 
 fn build_cli() -> App<'static, 'static> {
     app_from_crate!(", ")
         .setting(AppSettings::SubcommandRequired)
-        .arg(Arg::with_name("region")
-             .short("r")
-             .long("region")
-             .help("AWS region to operate in")
-             .default_value("us-east-1")
-             .validator(validate_region)
+        .arg(
+            Arg::with_name("region")
+                .short("r")
+                .long("region")
+                .help("AWS region to operate in")
+                .default_value("us-east-1")
+                .validator(validate_region),
         )
-        .arg(Arg::with_name("profile")
-             .long("profile")
-             .help("AWS credentials profile name")
-             .takes_value(true)
+        .arg(
+            Arg::with_name("profile")
+                .long("profile")
+                .help("AWS credentials profile name")
+                .takes_value(true),
         )
-        .subcommand(SubCommand::with_name("list")
-                    .about("List ECR repositories or their contents")
-                    .arg(Arg::with_name("repository")
-                         .help("ECR repository to list the contents of")))
+        .subcommand(
+            SubCommand::with_name("list")
+                .about("List ECR repositories or their contents")
+                .arg(
+                    Arg::with_name("repository").help("ECR repository to list the contents of"),
+                ),
+        )
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init().expect("initializing global logger");
 
     let matches = build_cli().get_matches();
 
@@ -57,8 +69,10 @@ fn main() {
 
     let ecr_client = EcrClient::new(default_tls_client().unwrap(), chain_provider, region);
     match matches.subcommand() {
-        ("list", Some(sub_m)) => { list_subcommand(sub_m, ecr_client); },
-        _                     => unreachable!(),
+        ("list", Some(sub_m)) => {
+            list_subcommand(sub_m, ecr_client);
+        }
+        _ => unreachable!(),
     }
 }
 
@@ -79,7 +93,9 @@ fn list_subcommand(arg_matches: &ArgMatches, ecr_client: EcrClient<ChainProvider
 }
 
 fn list_repositories(ecr_client: EcrClient<ChainProvider, Client>) {
-    if let Some(mut repositories) = get_repository_list(ecr_client, DescribeRepositoriesRequest::default()) {
+    if let Some(mut repositories) =
+        get_repository_list(ecr_client, DescribeRepositoriesRequest::default())
+    {
         println!("Repository Name\t\tURI");
         repositories.sort_by(|a, b| {
             let a_name = match a.repository_name.borrow() {
@@ -108,7 +124,10 @@ fn list_repositories(ecr_client: EcrClient<ChainProvider, Client>) {
     }
 }
 
-fn get_repository_list(ecr_client: EcrClient<ChainProvider, Client>, request: DescribeRepositoriesRequest) -> Option<RepositoryList> {
+fn get_repository_list(
+    ecr_client: EcrClient<ChainProvider, Client>,
+    request: DescribeRepositoriesRequest,
+) -> Option<RepositoryList> {
     match ecr_client.describe_repositories(&request) {
         Ok(response) => {
             debug!("Got a response!");
@@ -119,14 +138,19 @@ fn get_repository_list(ecr_client: EcrClient<ChainProvider, Client>, request: De
             };
 
             if let Some(next_token) = response.next_token {
-                let new_request = DescribeRepositoriesRequest { next_token: Some(next_token), max_results: request.max_results, registry_id: request.registry_id, repository_names: request.repository_names };
+                let new_request = DescribeRepositoriesRequest {
+                    next_token: Some(next_token),
+                    max_results: request.max_results,
+                    registry_id: request.registry_id,
+                    repository_names: request.repository_names,
+                };
                 if let Some(mut more_repos) = get_repository_list(ecr_client, new_request) {
                     repositories.append(&mut more_repos);
                 }
             }
 
             return Some(repositories);
-        },
+        }
         Err(e) => {
             println!("Could not list repositories: {}", e.description());
             None
@@ -161,12 +185,20 @@ fn list_repository_images(ecr_client: EcrClient<ChainProvider, Client>, repo_nam
                 &Some(ref n) => n.clone(),
                 &None => "n/a".to_string(),
             };
-            println!("{}\t\t{:?}\t{:?}", image_digest, image.image_pushed_at.unwrap(), image.image_size_in_bytes.unwrap());
+            println!(
+                "{}\t\t{:?}\t{:?}",
+                image_digest,
+                image.image_pushed_at.unwrap(),
+                image.image_size_in_bytes.unwrap()
+            );
         }
     }
 }
 
-fn get_repository_image_list(ecr_client: EcrClient<ChainProvider, Client>, request: DescribeImagesRequest) -> Option<ImageDetailList> {
+fn get_repository_image_list(
+    ecr_client: EcrClient<ChainProvider, Client>,
+    request: DescribeImagesRequest,
+) -> Option<ImageDetailList> {
     match ecr_client.describe_images(&request) {
         Ok(response) => {
             debug!("Got a response!");
@@ -183,7 +215,7 @@ fn get_repository_image_list(ecr_client: EcrClient<ChainProvider, Client>, reque
                     next_token: Some(next_token),
                     max_results: request.max_results,
                     registry_id: request.registry_id,
-                    repository_name: request.repository_name
+                    repository_name: request.repository_name,
                 };
                 if let Some(mut more_images) = get_repository_image_list(ecr_client, new_request) {
                     images.append(&mut more_images);
@@ -191,7 +223,7 @@ fn get_repository_image_list(ecr_client: EcrClient<ChainProvider, Client>, reque
             }
 
             return Some(images);
-        },
+        }
         Err(e) => {
             println!("Could not list images: {}", e.description());
             None
