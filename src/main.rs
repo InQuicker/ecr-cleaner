@@ -45,10 +45,42 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true),
         )
         .subcommand(
+            SubCommand::with_name("clean")
+                .about("Delete images from a repository")
+                .arg(
+                    Arg::with_name("repository")
+                        .help("ECR repository whose images will be deleted")
+                        .index(1)
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("count")
+                        .help("The number of images to delete if the threshold is met")
+                        .required(true)
+                        .short("c")
+                        .long("count")
+                        .takes_value(true)
+                        .number_of_values(1),
+                )
+                .arg(
+                    Arg::with_name("threshold")
+                        .help(
+                            "The number of images that must exist before any will be deleted",
+                        )
+                        .required(true)
+                        .short("t")
+                        .long("threshold")
+                        .takes_value(true)
+                        .number_of_values(1),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("list")
                 .about("List ECR repositories or their contents")
                 .arg(
-                    Arg::with_name("repository").help("ECR repository to list the contents of"),
+                    Arg::with_name("repository")
+                        .help("ECR repository to list the contents of")
+                        .index(1),
                 ),
         )
 }
@@ -85,12 +117,17 @@ fn real_main() -> Result<(), Error> {
     let ecr_client = EcrClient::new(default_tls_client()?, chain_provider, region);
 
     match matches.subcommand() {
-        ("list", Some(sub_m)) => {
-            list_subcommand(sub_m, ecr_client);
+        ("list", Some(sub_matches)) => {
+            list_subcommand(sub_matches, ecr_client);
 
             Ok(())
         }
-        _ => unreachable!(),
+        ("clean", Some(sub_matches)) => {
+            clean_subcommand(sub_matches, ecr_client)?;
+
+            Ok(())
+        }
+        _ => Err(Error("unknown subcommand".to_owned())),
     }
 }
 
@@ -99,6 +136,36 @@ fn validate_region(region: String) -> Result<(), String> {
         Ok(_) => Ok(()),
         Err(e) => Err(e.description().into()),
     }
+}
+
+fn clean_subcommand<P, D>(
+    arg_matches: &ArgMatches,
+    ecr_client: EcrClient<P, D>,
+) -> Result<(), Error>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    let count: u64 = arg_matches
+        .value_of("count")
+        .expect("accessing `count`")
+        .parse()?;
+    let threshold: u64 = arg_matches
+        .value_of("threshold")
+        .expect("accessing `threshold`")
+        .parse()?;
+    let repository = arg_matches
+        .value_of("repository")
+        .expect("accessing `repository`");
+
+    info!(
+        "count: {}, threshold: {}, repository: {}",
+        count,
+        threshold,
+        repository
+    );
+
+    Ok(())
 }
 
 fn list_subcommand<P, D>(arg_matches: &ArgMatches, ecr_client: EcrClient<P, D>)
