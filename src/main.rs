@@ -67,6 +67,7 @@ extern crate rusoto_ecr;
 use std::error::Error as StdError;
 use std::process::exit;
 use std::str::FromStr;
+use std::time::Duration;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use rusoto_core::{
@@ -168,7 +169,14 @@ fn real_main() -> Result<(), Error> {
         .expect("extracting value of `region`")
         .parse()?;
 
-    let ecr_client = EcrClient::new(default_tls_client()?, chain_provider, region);
+    let mut hyper_client = default_tls_client()?;
+
+    let timeout = Duration::from_secs(60);
+
+    hyper_client.set_read_timeout(Some(timeout));
+    hyper_client.set_write_timeout(Some(timeout));
+
+    let ecr_client = EcrClient::new(hyper_client, chain_provider, region);
 
     match matches.subcommand() {
         ("list", Some(sub_matches)) => list_subcommand(sub_matches, ecr_client),
