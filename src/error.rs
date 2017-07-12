@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::num::ParseIntError;
 
 use rusoto_core::{CredentialsError, ParseRegionError, TlsError};
+use rusoto_ecr::BatchDeleteImageError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error(pub String);
@@ -22,6 +23,7 @@ macro_rules! impl_from_error {
     }
 }
 
+impl_from_error!(BatchDeleteImageError);
 impl_from_error!(CredentialsError);
 impl_from_error!(ParseIntError);
 impl_from_error!(ParseRegionError);

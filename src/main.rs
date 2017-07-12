@@ -20,7 +20,7 @@ use rusoto_core::{
 };
 use rusoto_ecr::EcrClient;
 
-use ecr::{list_repositories, list_repository_images};
+use ecr::{delete_images, list_repositories, list_repository_images};
 use error::Error;
 use fmt::{images_table, repositories_table};
 
@@ -149,15 +149,17 @@ where
         .value_of("repository")
         .expect("accessing `repository`");
 
-    let images = list_repository_images(ecr_client, repository.to_owned())?;
+    let images = list_repository_images(&ecr_client, repository.to_owned())?;
 
     if images.len() >= threshold as usize {
         println!(
-            "Repository {} met threshold of {} images. Deleting the oldest {}",
+            "Repository {} met threshold of {} images. Deleting the oldest {} images.",
             repository,
             threshold,
             count
         );
+
+        delete_images(&ecr_client, repository, images, count)?;
     }
 
     Ok(())
@@ -169,7 +171,7 @@ where
     D: DispatchSignedRequest,
 {
     if let Some(repo_name) = arg_matches.value_of("repository") {
-        let images = list_repository_images(ecr_client, repo_name.to_string())?;
+        let images = list_repository_images(&ecr_client, repo_name.to_string())?;
 
         let table = images_table(images);
 
@@ -177,7 +179,7 @@ where
 
         Ok(())
     } else {
-        let repositories = list_repositories(ecr_client)?;
+        let repositories = list_repositories(&ecr_client)?;
 
         let table = repositories_table(repositories);
 

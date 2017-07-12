@@ -3,18 +3,52 @@ use std::error::Error as StdError;
 
 use rusoto_core::{DispatchSignedRequest, ProvideAwsCredentials};
 use rusoto_ecr::{
+    BatchDeleteImageRequest,
     DescribeImagesRequest,
     DescribeRepositoriesRequest,
     Ecr,
     EcrClient,
     ImageDetailList,
+    ImageIdentifier,
     RepositoryList,
 };
 
 use error::Error;
 
+pub fn delete_images<P, D>(
+    ecr_client: &EcrClient<P, D>,
+    repository_name: &str,
+    images: ImageDetailList,
+    count: u64,
+) -> Result<(), Error>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    let image_identifiers: Vec<ImageIdentifier> = images
+        .into_iter()
+        .take(count as usize)
+        .map(|image| {
+            ImageIdentifier {
+                image_digest: image.image_digest,
+                image_tag: None,
+            }
+        })
+        .collect();
+
+    let request = BatchDeleteImageRequest {
+        image_ids: image_identifiers,
+        registry_id: None,
+        repository_name: repository_name.to_owned(),
+    };
+
+    ecr_client.batch_delete_image(&request)?;
+
+    Ok(())
+}
+
 pub fn get_repository_image_list<P, D>(
-    ecr_client: EcrClient<P, D>,
+    ecr_client: &EcrClient<P, D>,
     request: DescribeImagesRequest,
 ) -> Result<ImageDetailList, Error>
 where
@@ -52,7 +86,7 @@ where
 }
 
 pub fn get_repository_list<P, D>(
-    ecr_client: EcrClient<P, D>,
+    ecr_client: &EcrClient<P, D>,
     request: DescribeRepositoriesRequest,
 ) -> Result<RepositoryList, Error>
 where
@@ -87,7 +121,7 @@ where
     }
 }
 
-pub fn list_repositories<P, D>(ecr_client: EcrClient<P, D>) -> Result<RepositoryList, Error>
+pub fn list_repositories<P, D>(ecr_client: &EcrClient<P, D>) -> Result<RepositoryList, Error>
 where
     P: ProvideAwsCredentials,
     D: DispatchSignedRequest,
@@ -101,7 +135,7 @@ where
 
 
 pub fn list_repository_images<P, D>(
-    ecr_client: EcrClient<P, D>,
+    ecr_client: &EcrClient<P, D>,
     repo_name: String,
 ) -> Result<ImageDetailList, Error>
 where
