@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate prettytable;
 extern crate rusoto_core;
 extern crate rusoto_ecr;
 
@@ -20,7 +22,7 @@ use rusoto_ecr::EcrClient;
 
 use ecr::{list_repositories, list_repository_images};
 use error::Error;
-use fmt::{display_images, display_repositories};
+use fmt::{images_table, repositories_table};
 
 mod ecr;
 mod error;
@@ -169,13 +171,17 @@ where
     if let Some(repo_name) = arg_matches.value_of("repository") {
         let images = list_repository_images(ecr_client, repo_name.to_string())?;
 
-        display_images(images);
+        let table = images_table(images);
+
+        table.printstd();
 
         Ok(())
     } else {
         let repositories = list_repositories(ecr_client)?;
 
-        display_repositories(repositories);
+        let table = repositories_table(repositories);
+
+        table.printstd();
 
         Ok(())
     }

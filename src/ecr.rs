@@ -94,7 +94,7 @@ where
 {
     let mut repositories = get_repository_list(ecr_client, DescribeRepositoriesRequest::default())?;
 
-    repositories.sort_by(|a, b| a.repository_name.cmp(&b.repository_name) );
+    repositories.sort_by(|a, b| a.repository_name.cmp(&b.repository_name));
 
     Ok(repositories)
 }
@@ -115,7 +115,9 @@ where
     let mut images = get_repository_image_list(ecr_client, describe_images_request)?;
 
     images.sort_by(|a, b| {
-        a.image_pushed_at.partial_cmp(&b.image_pushed_at).unwrap_or(Ordering::Equal)
+        a.image_pushed_at
+            .partial_cmp(&b.image_pushed_at)
+            .unwrap_or(Ordering::Equal)
     });
 
     Ok(images)
