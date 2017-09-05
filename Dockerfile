@@ -1,5 +1,6 @@
-FROM jimmycuadra/rust
+FROM rust
 
+WORKDIR /source
 COPY . /source
 RUN cargo build --release
 
